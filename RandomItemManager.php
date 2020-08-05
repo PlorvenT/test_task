@@ -30,31 +30,6 @@ class RandomItemManager
         return $sumChance;
     }
 
-    /**
-     * Group and count items. Example
-     * ["iron", "gold", "gold"] became
-     * [
-     *   "iron" => 1,
-     *   "gold" => 2,
-     * ]
-     *
-     * @param $items array
-     * @return array
-     */
-    private function groupItems($items)
-    {
-        $resultItems = [];
-        foreach ($items as $item) {
-            if (!isset($resultItems[$item])) {
-                $resultItems[$item] = 1;
-            } else {
-                $resultItems[$item]++;
-            }
-        }
-
-        return $resultItems;
-    }
-
     private function getMaxCount($groupItems)
     {
         $max = 0;
@@ -78,6 +53,7 @@ class RandomItemManager
         $result = [];
         $sumChances = $this->getItemsTotalChance($items);
         $leftSpace = $this->maxWeight;
+
         while (true) {
             $randomChance = rand(1, $sumChances);
             $tempSumChances = 0;
@@ -96,7 +72,7 @@ class RandomItemManager
             }
 
             //invalid unique items
-            $groupItems = $this->groupItems(array_merge($result, [$randomItem->getName()]));
+            $groupItems = array_count_values(array_merge($result, [$randomItem->getName()]));
             if (count($groupItems) > $this->maxSingleItemCount) {
                 break;
             }
@@ -110,7 +86,7 @@ class RandomItemManager
             $result[] = $randomItem->getName();
         }
 
-        return $this->groupItems($result);
+        return array_count_values($result);
     }
 
     public function generateChangedSet($previousSet, $items)
