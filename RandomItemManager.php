@@ -17,49 +17,100 @@ class RandomItemManager
     }
 
     /**
+     * @param $items Item[]
+     * @return int
+     */
+    private function getItemsTotalChance($items)
+    {
+        $sumChance = 0;
+        foreach ($items as $item) {
+            $sumChance += $item->getChance();
+        }
+
+        return $sumChance;
+    }
+
+    /**
+     * Group and count items. Example
+     * ["iron", "gold", "gold"] became
+     * [
+     *   "iron" => 1,
+     *   "gold" => 2,
+     * ]
+     *
+     * @param $items array
+     * @return array
+     */
+    private function groupItems($items)
+    {
+        $resultItems = [];
+        foreach ($items as $item) {
+            if (!isset($resultItems[$item])) {
+                $resultItems[$item] = 1;
+            } else {
+                $resultItems[$item]++;
+            }
+        }
+
+        return $resultItems;
+    }
+
+    private function getMaxCount($groupItems)
+    {
+        $max = 0;
+        foreach ($groupItems as $key => $count) {
+            if ($count > $max) {
+                $max = $count;
+            }
+        }
+
+        return $max;
+    }
+
+    /**
      * Generates random items which have weight <= [[$this->maxWeight]]. At least 1 item will be present in result.
      *
-     * @param $items
+     * @param $items Item[]
      * @return array
      */
     public function generateSet($items)
     {
         $result = [];
+        $sumChances = $this->getItemsTotalChance($items);
         $leftSpace = $this->maxWeight;
-        $uniqueItem = 0;
-        foreach ($items as $item) {
-            if ($uniqueItem == $this->maxUniqueItem) {
+        while (true) {
+            $randomChance = rand(1, $sumChances);
+            $tempSumChances = 0;
+            $randomItem = null;
+            foreach ($items as $item) {
+                $tempSumChances += $item->getChance();
+                if ($randomChance <= $tempSumChances) {
+                    $randomItem = $item;
+                    break;
+                }
+            }
+
+            //backpack is full
+            if ($leftSpace - $randomItem->getWeight() < 0) {
                 break;
             }
-            if (rand(1, 100) < $item->getChance()) {
-                $itemCount = rand(1, $this->maxSingleItemCount);
-                $totalWeight = $itemCount * $item->getWeight();
-                //check if have enough size in backpack
-                if ($totalWeight <= $leftSpace) {
-                    $leftSpace -= $totalWeight;
-                    $result[$item->getName()] = $itemCount;
-                    $uniqueItem++;
-                } else {
-                    //can be 0
-                    $fitItemCount = (int) floor($leftSpace / $item->getWeight());
-                    $leftSpace -= $fitItemCount * $item->getWeight();
-                    $result[$item->getName()] = $fitItemCount;
-                    if ($fitItemCount) {
-                        $uniqueItem++;
-                    }
-                }
-            } else {
-                $result[$item->getName()] = 0;
+
+            //invalid unique items
+            $groupItems = $this->groupItems(array_merge($result, [$randomItem->getName()]));
+            if (count($groupItems) > $this->maxSingleItemCount) {
+                break;
             }
 
+            //invalid count item
+            if ($this->getMaxCount($groupItems) > $this->maxUniqueItem) {
+                break;
+            }
+
+            $leftSpace -= $randomItem->getWeight();
+            $result[] = $randomItem->getName();
         }
 
-        //if 0 item try one more time
-        if ($leftSpace == $this->maxWeight) {
-            return $this->generateSet($items);
-        }
-
-        return $result;
+        return $this->groupItems($result);
     }
 
     public function generateChangedSet($previousSet, $items)
